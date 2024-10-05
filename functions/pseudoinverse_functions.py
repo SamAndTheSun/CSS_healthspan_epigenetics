@@ -15,12 +15,13 @@ from matplotlib.colors import LogNorm
 
 import string
 
-def quality_filter(data, filter):
+def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J or Sv129Ev?']):
     '''
     removes highly similar data, determined by spearman coefficient
 
         param data: data to be assessed, by row, df
         param filter: spearman coefficient threshhold, float
+        param keep_val: which traits to forcefully keep
 
         return: filtered data, df
     '''
@@ -50,31 +51,29 @@ def quality_filter(data, filter):
     df = df.drop(columns='rank_sort')
 
     index = df.index
-    df = df.values #decreases runtime
-
-    keep_val = ['Rank', 'CD1 or C57BL6J?', 'C57BL6J or Sv129Ev?'] #special case handling
+    df = df.values # decreases runtime
 
     n = 0
     while n < len(df):
         m = 0
         print(f'\ninitializing: {index[n]}\n')
         while m < len(df):
-            if m == n: #if both selectors are on the same trait
-                m+=1 #skip equivalent
-                if m >= len(df): #if doing so leads to surpassing the df, break the loop
+            if m == n: # if both selectors are on the same trait
+                m+=1 # skip equivalent
+                if m >= len(df): # if doing so leads to surpassing the df, break the loop
                     break
                 else:
                     pass
-            corr = stats.spearmanr(df[n], df[m]) #find similarity between two traits
+            corr = stats.spearmanr(df[n], df[m]) # find similarity between two traits
             print(f'{index[m]} corr: {abs(corr[0])}')
-            if abs(corr[0]) > filter: #if colinearity is high
-                if index[m] not in keep_val: #if not dealing with a special case
+            if abs(corr[0]) > filter: # if colinearity is high
+                if index[m] not in keep_val: # if not dealing with a special case
                     print(f'\nremoving: {index[m]}\n')
-                    df = np.delete(df, m, 0) #remove where m is selected from df
-                    index = np.delete(index, m, 0) #shifts m=4, for instance to being equivalent to what was previously m=5
-                    if n >= len(df)-1: #if last iteration, n needs to be shifted aswell to account for deletion
+                    df = np.delete(df, m, 0) # remove where m is selected from df
+                    index = np.delete(index, m, 0) # shifts m=4, for instance to being equivalent to what was previously m=5
+                    if n >= len(df)-1: # if last iteration, n needs to be shifted aswell to account for deletion
                         n-=1   
-                    m-=1 #because m will be increased by 1 at the end of the loop
+                    m-=1 # because m will be increased by 1 at the end of the loop
             m+=1
         n+=1
 
@@ -98,7 +97,7 @@ def corr_scatter(pred, actual):
         return: none
     '''
 
-    fig, axs = plt.subplots(ncols=3, nrows=3, figsize=(20, 15)) #not generalizeable, adjust as needed
+    fig, axs = plt.subplots(ncols=3, nrows=3, figsize=(20, 15)) # not generalizeable, adjust as needed
 
     keys = list(pred.keys())
     for i, ax in enumerate(axs.flat):
@@ -295,11 +294,11 @@ def pinv_dropmin(trait_data, meth_data, thresh, find_meth=False,
 
         corr_vals = []
 
-        for key in pred.keys(): #find the spearman for each trait
+        for key in pred.keys(): # find the spearman for each trait
             corr = stats.spearmanr(pred[key], actual[key])
             corr_vals.append(corr[0])
 
-        n = 0 #prepare to drop low spearman values
+        n = 0 # prepare to drop low spearman values
         while n < len(corr_vals):
             if abs(corr_vals[n]) < thresh:
                 to_drop.append(index[n])
@@ -307,20 +306,20 @@ def pinv_dropmin(trait_data, meth_data, thresh, find_meth=False,
                 pass
             n+=1
 
-        try: #forcefully keep Rank
+        try: # forcefully keep Rank
             to_drop.remove('Rank')
         except ValueError:
             pass
 
-        for trait in to_drop: #drop others
+        for trait in to_drop: # drop others
             trait_data = trait_data.drop(trait, axis=0)
 
-        if to_drop == []: #if nothing left to drop, complete loop
+        if to_drop == []: # if nothing left to drop, complete loop
             loop_exit = True
         else:
             pass
 
-    if find_meth: #find probes for remaining traits
+    if find_meth: # find probes for remaining traits
         trait_pvals, trait_coefs = meth_calc(trait_data, meth_data)
 
         trait_pvals = pd.DataFrame.from_dict(trait_pvals)
@@ -355,8 +354,8 @@ def filter_meth(trait_data, meth_data, thresh=0.5):
 
     to_remove = []
     for key in index:
-        temp = (mean_absolute_error(actual[key], pred[key]) / np.std(actual[key])) #mean abs error / std
-        if temp >= thresh: #i.e keep those <thresh
+        temp = (mean_absolute_error(actual[key], pred[key]) / np.std(actual[key])) # mean abs error / std
+        if temp >= thresh: # i.e keep those <thresh
             to_remove.append(key)
         else:
             pass
@@ -389,7 +388,7 @@ def meth_calc(trait_data, meth_data):
     coef = [0]*trait_data[0].shape[0]
     coef = np.array(pvals, dtype='float32')
 
-    for probe in meth_data: #get p values for all probe-trait combinations
+    for probe in meth_data: # get p values for all probe-trait combinations
         model = sm.OLS(probe, trait_data).fit()
         pvals = np.vstack((pvals, model.pvalues))
         coef = np.vstack((coef, model.params))
