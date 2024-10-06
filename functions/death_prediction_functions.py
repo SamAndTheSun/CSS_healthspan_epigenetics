@@ -286,7 +286,6 @@ def train_nn(X_train, y_train, batch_size, bar=False, print_epochs=True, print_e
       progress_bar = IntProgress(min=0, max=epochs, description='Training')
       display(progress_bar)
 
-    # the try/except statement allows us to disregard training progress if we encounter weights that don't train properly
     for i in range(epochs):
         for inputs, targets in dataloader:
 
@@ -308,7 +307,7 @@ def train_nn(X_train, y_train, batch_size, bar=False, print_epochs=True, print_e
            best_loss = loss
            best_model = copy.deepcopy(model)
 
-        if bar: progress_bar.value = epochs+1
+        if bar: progress_bar.value = i+1
 
     return best_model
 
@@ -326,7 +325,7 @@ def test_nn(model, X_val, y_val, avg=True):
 
   # convert DataFrame to numpy arrays and then to tensors
   X_val = torch.tensor(X_val.values, dtype=torch.float32)
-  y_val = torch.tensor(y_val.values, dtype=torch.float32).view(-1, 1)  # Ensure the correct shap
+  y_val = torch.tensor(y_val.values, dtype=torch.float32).view(-1, 1)  # ensure the correct shape
   
   criterion = nn.L1Loss()
 
