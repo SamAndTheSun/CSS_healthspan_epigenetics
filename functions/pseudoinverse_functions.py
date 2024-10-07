@@ -59,11 +59,11 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
     index = df.index
     df = df.values # decreases runtime
 
-    # filters highly colinear traits. print statements (commented out) verify this process
+    # filters highly colinear traits
     n = 0
     while n < len(df):
         m = 0
-        #print(f'\ninitializing: {index[n]}\n')
+        print(f'\ninitializing: {index[n]}\n')
         while m < len(df):
             if m == n: # if both selectors are on the same trait
                 m+=1 # skip equivalent
@@ -72,10 +72,10 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
                 else:
                     pass
             corr = stats.spearmanr(df[n], df[m]) # find similarity between two traits
-            #print(f'{index[m]} corr: {abs(corr[0])}')
+            print(f'{index[m]} corr: {abs(corr[0])}')
             if abs(corr[0]) > filter: # if colinearity is high
                 if index[m] not in keep_val: # if not dealing with a special case
-                    #print(f'\nremoving: {index[m]}\n')
+                    print(f'\nremoving: {index[m]}\n')
                     df = np.delete(df, m, 0) # remove where m is selected from df
                     index = np.delete(index, m, 0) # shifts m=4, for instance to being equivalent to what was previously m=5
                     if n >= len(df)-1: # if last iteration, n needs to be shifted aswell to account for deletion
@@ -265,7 +265,6 @@ def pinv_dropmin(trait_data, meth_data, trait_thresh, find_meth=False, plot_resu
 
     if probe_thresh != 0: # decrease number of methylation probes
         meth_data = filter_meth(trait_data, meth_data, probe_thresh)
-    print(meth_data)
 
     any_dropped = True # to initiate the loop
     while any_dropped:
