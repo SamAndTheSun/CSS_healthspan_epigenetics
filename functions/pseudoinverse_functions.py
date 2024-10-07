@@ -111,7 +111,7 @@ def corr_scatter(pred, actual):
             ax.plot(np.unique(x), np.poly1d(np.polyfit(x, y, 1))(np.unique(x)), color='rebeccapurple')
             
             info = stats.spearmanr(x, y)
-            corr_coef = '{0:.3f}'.format(info[0])
+            corr_coef = '{0:.3f}'.format(abs(info[0]))
 
             ax.set_title(f'|{keys[i]}| = {corr_coef}', size=15, pad=10)
             ax.set_xlabel('model pred', size=15)
@@ -212,6 +212,9 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
 
     all_pred = {var: [] for var in y_names}
     all_actual = {var: [] for var in y_names}
+
+    # add a constant term = 1, so we dont force the model to have 0 for meth when trait = 0
+    X = sm.add_constant(X, prepend=False) # add it too the last column
         
     for i in range(len(y)):
 
@@ -223,9 +226,6 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
         X_test = X[i]
         y_train = y[mask]
         y_test = y[i]
-
-        # add a bias term = 1, so we dont force the model to have 0 for meth when trait = 0
-        y_train = np.append(y_train,np.ones([len(y_train),1]),1)
 
         # generate predictions 
         if pred_trait:
@@ -245,26 +245,27 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
 
     return all_pred, all_actual, y_names
 
-def pinv_dropmin(trait_data, meth_data, thresh, find_meth=False, plot_results=True, 
-                 meth_filter_thresh=0, to_keep = ['Rank']):
+def pinv_dropmin(trait_data, meth_data, trait_thresh, find_meth=False, plot_results=True, 
+                 probe_thresh=0, to_keep = ['Rank']):
     '''
     identifies those traits highly predictable using methylation data,
     and uses this information according to parameter settings
 
         param trait_data: trait-associated data, m = traits, n = animal/individual, df
         param meth_data: methylation score data, m = probe ID, n = animal/individual, df
-        param thresh: threshold for dropping traits, if accuracy < thresh, drop trait and loop function, float
+        param trait_thresh: threshold for dropping traits, if accuracy < thresh, drop trait and loop function, float
         param find_meth: if True, intiaites additional multivariate regression for each remaining trait/probe combination, bool
-        param polt_results: if True, plots results of data analysis, in accordance with other parameters, bool
-        param meth_filter_thresh: threshold of mean difference for dropping methylation sites, if val > param, drop
+        param plot_results: if True, plots results of data analysis, in accordance with other parameters, bool
+        param probe_thresh: threshold of mean difference for dropping methylation sites, if val > param, drop
         param to_keep: which traits to keep, as a list
 
         return: 3 dictionaries- if find_meth = False, keys = traits, vals = model predictions, actual, index,
                             else, keys = probes, vals = pvals+coefs, pvals, coefs 
     '''
 
-    if meth_filter_thresh != 0: # decrease number of methylation probes
-        meth_data = filter_meth(trait_data, meth_data, meth_filter_thresh)
+    if probe_thresh != 0: # decrease number of methylation probes
+        meth_data = filter_meth(trait_data, meth_data, probe_thresh)
+    print(meth_data)
 
     any_dropped = True # to initiate the loop
     while any_dropped:
@@ -277,7 +278,7 @@ def pinv_dropmin(trait_data, meth_data, thresh, find_meth=False, plot_results=Tr
             if key in to_keep: # skip the traits which are being forcefully maintained
                 continue
             corr = stats.spearmanr(pred[key], actual[key]) # get the prediction accuracy
-            if abs(corr[0]) < thresh: # if the absolute value of the correlation coefficient is under the threshhold
+            if abs(corr[0]) < trait_thresh: # if the absolute value of the correlation coefficient is under the threshhold
                 to_remove.append(key) # prepare to drop the poorly predicted traits
                 any_dropped = True # tells us that some have been dropped, so we should continue running iterations
         trait_data = trait_data.drop(index=to_remove) # drop the poorly predicted traits
@@ -333,17 +334,19 @@ def meth_calc(trait_data, meth_data):
 
     trait_vals = trait_data.values
     trait_vals = trait_vals.T
-
     meth_vals = meth_data.values
 
     # create the empty arrays to store the pval and coefficient information
     pvals = np.zeros((meth_vals.shape[0], trait_vals.shape[1]), dtype='float32')
     coef = pvals.copy()
 
+    # add a constant term to trait_vals so that the model is fit through an origin of 1
+    X = sm.add_constant(trait_vals, prepend=True) # adds to the first column
+    
     for i, probe in enumerate(meth_vals): # get p values for all probe-trait combinations (i.e. the "multiple" in mulitple multivariate regression)
-        model = sm.OLS(probe, trait_vals).fit() #  the "multivariate" in mulitple multivariate regression
-        pvals[i] = model.pvalues
-        coef[i] =  model.params
+        model = sm.OLS(probe, X).fit() #  the "univariate" in univariate/linear multivariate regression
+        pvals[i] = model.pvalues[1:]
+        coef[i] =  model.params[1:]
 
     # so that we can iterate by trait
     pvals_by_trait = pvals.T
@@ -364,12 +367,31 @@ def meth_calc(trait_data, meth_data):
         n+=1
 
     # make a dataframe representing all of the trait/probe combinations and their adjusted values
-    trait_vals = pd.DataFrame()
+    trait_all_vals = pd.DataFrame()
     for key in trait_pvals.keys():
-        trait_vals[f'{key}_pval'] = trait_pvals[key]
-        trait_vals[f'{key}_coef'] = trait_coefs[key]
+        trait_all_vals[f'{key}_pval'] = trait_pvals[key]
+        trait_all_vals[f'{key}_coef'] = trait_coefs[key]
 
     # make the index the probe names
-    trait_vals = trait_vals.set_index(pd.Index(meth_index))
+    trait_all_vals  = trait_all_vals.set_index(pd.Index(meth_index))
 
-    return trait_pvals, trait_vals
+    return trait_pvals, trait_all_vals
+
+def count_cumulative_probes(df, col1, col2):
+    """
+    Counts the number of non-NaN rows for two specified columns, with overlapping non-NaN rows counted once.
+
+    param df: The DataFrame containing the data.
+    param col1: The name of the first column.
+    param col2: The name of the second column.
+
+    return: none
+    """
+    # Ensure the columns exist in the DataFrame
+    if col1 in df.columns and col2 in df.columns:
+        non_nan_count = df[[col1, col2]].notna().any(axis=1).sum()
+        print(f'{col1} and {col2}: {non_nan_count}')
+    else:
+        print(f"One or both columns '{col1}' and '{col2}' are not in the DataFrame")
+
+    return
