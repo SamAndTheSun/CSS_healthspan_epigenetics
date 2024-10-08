@@ -63,7 +63,7 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
     n = 0
     while n < len(df):
         m = 0
-        print(f'\ninitializing: {index[n]}\n')
+        #print(f'\ninitializing: {index[n]}\n')
         while m < len(df):
             if m == n: # if both selectors are on the same trait
                 m+=1 # skip equivalent
@@ -72,10 +72,10 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
                 else:
                     pass
             corr = stats.spearmanr(df[n], df[m]) # find similarity between two traits
-            print(f'{index[m]} corr: {abs(corr[0])}')
+            #print(f'{index[m]} corr: {abs(corr[0])}')
             if abs(corr[0]) > filter: # if colinearity is high
                 if index[m] not in keep_val: # if not dealing with a special case
-                    print(f'\nremoving: {index[m]}\n')
+                    #print(f'\nremoving: {index[m]}\n')
                     df = np.delete(df, m, 0) # remove where m is selected from df
                     index = np.delete(index, m, 0) # shifts m=4, for instance to being equivalent to what was previously m=5
                     if n >= len(df)-1: # if last iteration, n needs to be shifted aswell to account for deletion
@@ -214,9 +214,9 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
     all_actual = {var: [] for var in y_names}
 
     # add a constant term = 1, so we dont force the model to have 0 for meth when trait = 0
-    X = sm.add_constant(X, prepend=False) # add it too the last column
+    X = sm.add_constant(X, prepend=False) # add it too the end
         
-    for i in range(len(y)):
+    for i in range(len(y)): # so that the constant isn't reached
 
         # define mask to distinguish train and test set
         mask = np.arange(len(y)) != i
@@ -320,7 +320,7 @@ def filter_meth(trait_data, meth_data, thresh=0.5):
 
 def meth_calc(trait_data, meth_data):
     '''
-    runs MMR, X (dependent) = probes, y (independent) = traits
+    runs MLR, X (dependent) = probes, y (independent) = traits
     gets AdjP for each trait/probe combination
     
         param trait_data: trait-associated data, m = traits, n = animal/individual, df
