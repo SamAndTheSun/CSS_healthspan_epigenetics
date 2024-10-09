@@ -6,4 +6,6 @@ Presently, the model works by utilizing 2 models which eventually intersect. The
 
 ![](data_analysis_overview.png)
 
-The raw data files that the analysis uses are not available here.
+The raw data files that the analysis uses are not available here. The cohorts utilized by the models are depicted below
+
+![](experimental_design.png)
