@@ -205,16 +205,20 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
         X = meth_vals.copy() # the dataset used for making predictions (the independent variable)
         y = trait_vals.copy() # the dataset for which predictions are made (the dependent variable)
         y_names = list(trait_data.index)
+
+        # add a constant term = 1 to the trait matrix
+        y = sm.add_constant(y, prepend=False)
+        
     else: # if predicting methylation
         X = trait_vals.copy()
         y = meth_vals.copy()
         y_names = list(meth_data.index)
 
+        # add a constant term = 1 to the trait matrix
+        X = sm.add_constant(X, prepend=False)
+
     all_pred = {var: [] for var in y_names}
     all_actual = {var: [] for var in y_names}
-
-    # add a constant term = 1, so we dont force the model to have 0 for meth when trait = 0
-    X = sm.add_constant(X, prepend=False) # add it too the end
         
     for i in range(len(y)): # so that the constant isn't reached
 
@@ -377,7 +381,7 @@ def meth_calc(trait_data, meth_data):
     return trait_pvals, trait_all_vals
 
 def count_cumulative_probes(df, col1, col2):
-    """
+    '''
     Counts the number of non-NaN rows for two specified columns, with overlapping non-NaN rows counted once.
 
     param df: The DataFrame containing the data.
@@ -385,7 +389,7 @@ def count_cumulative_probes(df, col1, col2):
     param col2: The name of the second column.
 
     return: none
-    """
+    '''
     # Ensure the columns exist in the DataFrame
     if col1 in df.columns and col2 in df.columns:
         non_nan_count = df[[col1, col2]].notna().any(axis=1).sum()
