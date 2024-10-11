@@ -51,43 +51,32 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
         rank = timepoint_rank_map.get(timepoint, 13)
         rank_sort.append(rank)
 
+    # sort the values
     df = data.copy()
     df['rank_sort'] = rank_sort
     df = df.sort_values(by='rank_sort')
     df = df.drop(columns='rank_sort')
 
-    index = df.index
-    df = df.values # decreases runtime
+    # get the correlation for every combination of traits
+    trait_corr = df.T.corr(method='spearman').abs()
 
-    # filters highly colinear traits
-    n = 0
-    while n < len(df):
-        m = 0
-        #print(f'\ninitializing: {index[n]}\n')
-        while m < len(df):
-            if m == n: # if both selectors are on the same trait
-                m+=1 # skip equivalent
-                if m >= len(df): # if doing so leads to surpassing the df, break the loop
-                    break
-                else:
-                    pass
-            corr = stats.spearmanr(df[n], df[m]) # find similarity between two traits
-            #print(f'{index[m]} corr: {abs(corr[0])}')
-            if abs(corr[0]) > filter: # if colinearity is high
-                if index[m] not in keep_val: # if not dealing with a special case
-                    #print(f'\nremoving: {index[m]}\n')
-                    df = np.delete(df, m, 0) # remove where m is selected from df
-                    index = np.delete(index, m, 0) # shifts m=4, for instance to being equivalent to what was previously m=5
-                    if n >= len(df)-1: # if last iteration, n needs to be shifted aswell to account for deletion
-                        n-=1   
-                    m-=1 # because m will be increased by 1 at the end of the loop
-            m+=1
-        n+=1
+    # mask the diagonals and upper triangle
+    mask = np.tril(np.ones(trait_corr.shape), k=-1).astype(bool)
+    masked_corr = trait_corr.where(mask, 0)
 
-    df = pd.DataFrame(df) 
-    df = df.set_index(index)
+    # for the traits we want to keep
+    # we do two loops so they cant interact with eachother
+    for val in keep_val: masked_corr[val] = trait_corr[val] # make their columns unmasked so they participate in filtering
+    for val in keep_val: masked_corr.loc[val] = 0 # make their rows 0 so they can't be removed
 
-    return df
+    # make all values > filter = nan, then drop their corresponding rows
+    dropped_corr = masked_corr.copy()
+    dropped_corr[dropped_corr > filter] = np.nan
+    dropped_corr = dropped_corr.dropna(axis=0)
+
+    data = data.loc[data.index.isin(dropped_corr.index)]
+
+    return data, masked_corr
 
 def corr_scatter(pred, actual):
     '''
@@ -137,9 +126,8 @@ def probe_heatmap(data):
 
     fig, axs = plt.subplots(figsize=(8,10))
 
-    sns.heatmap(data, norm=LogNorm(vmin = 0.001, vmax = 0.5),
-                cmap='YlGnBu_r', cbar_kws={'extend': 'max'}, ax=axs)
-    
+    sns.heatmap(data, norm=LogNorm(vmin = 0.001, vmax = 0.5), cmap='YlGnBu_r', cbar_kws={'extend': 'max'}, ax=axs)
+
     axs.set_ylabel(f'{data.shape[0]} CpG sites (p value)', fontsize=20)
     axs.set_xlabel('trait', fontsize=20)
 
