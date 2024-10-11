@@ -15,6 +15,7 @@ from matplotlib.colors import LogNorm
 
 import string
 
+ 
 def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J or Sv129Ev?']):
     '''
     removes highly similar data, determined by spearman coefficient
@@ -274,16 +275,10 @@ def pinv_dropmin(trait_data, meth_data, trait_thresh, find_meth=False, plot_resu
                 any_dropped = True # tells us that some have been dropped, so we should continue running iterations
         trait_data = trait_data.drop(index=to_remove) # drop the poorly predicted traits
 
-    if find_meth:
-        trait_pvals, trait_vals = meth_calc(trait_data, meth_data)
-        if plot_results: 
-            probe_heatmap(pd.DataFrame.from_dict(trait_pvals))
-        return trait_vals, trait_pvals
+    # get the pvalues and coefficients for each trait/site combination
+    trait_pvals, trait_vals = meth_calc(trait_data, meth_data)
     
-    elif plot_results: 
-        corr_scatter(pred, actual)
-
-    return pred, actual, index
+    return pred, actual, trait_vals, trait_pvals
 
 def filter_meth(trait_data, meth_data, thresh=0.5):
     '''
@@ -296,10 +291,10 @@ def filter_meth(trait_data, meth_data, thresh=0.5):
         return: filtered methylation data, df
     '''
 
-    pred, actual, index = pinv_iteration(trait_data, meth_data, pred_trait=False)
+    pred, actual, _ = pinv_iteration(trait_data, meth_data, pred_trait=False)
 
     to_remove = []
-    for key in index:
+    for key in pred.keys():
         temp = (mean_absolute_error(actual[key], pred[key]) / np.std(actual[key])) # mean abs error / std
         if temp >= thresh: # i.e keep those <thresh
             to_remove.append(key)
