@@ -238,7 +238,7 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
 
     return all_pred, all_actual, y_names
 
-def pinv_dropmin(trait_data, meth_data, trait_thresh, find_meth=False, plot_results=True, 
+def pinv_dropmin(trait_data, meth_data, trait_thresh, 
                  probe_thresh=0, to_keep = ['Rank']):
     '''
     identifies those traits highly predictable using methylation data,
@@ -262,7 +262,7 @@ def pinv_dropmin(trait_data, meth_data, trait_thresh, find_meth=False, plot_resu
     any_dropped = True # to initiate the loop
     while any_dropped:
 
-        pred, actual, index = pinv_iteration(trait_data, meth_data)
+        pred, actual, _ = pinv_iteration(trait_data, meth_data)
         any_dropped = False # none have been dropped yet
 
         to_remove = []
