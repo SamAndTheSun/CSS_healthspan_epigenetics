@@ -9,12 +9,6 @@ from sklearn.metrics import mean_absolute_error
 import numpy as np
 import pandas as pd
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-
-import string
-
  
 def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J or Sv129Ev?']):
     '''
@@ -79,98 +73,6 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
 
     return data, masked_corr
 
-def corr_scatter(pred, actual):
-    '''
-    outputs scatterplots comparing predictions vs actual values
-
-        param pred: data indicating predicted trait values, dict
-        param actual: data indicating actual trait values, dict
-
-        return: none
-    '''
-
-    fig, axs = plt.subplots(ncols=3, nrows=3, figsize=(20, 15)) # not generalizeable, adjust as needed
-
-    keys = list(pred.keys())
-    for i, ax in enumerate(axs.flat):
-        try: # in case you have an odd number of inputs, i.e. 5
-            x = pred[keys[i]]
-            y = actual[keys[i]]
-
-            sns.scatterplot(data=None, x=x, y=y, alpha = 0.5, color='blue', ax=ax)
-            ax.plot(np.unique(x), np.poly1d(np.polyfit(x, y, 1))(np.unique(x)), color='rebeccapurple')
-            
-            info = stats.spearmanr(x, y)
-            corr_coef = '{0:.3f}'.format(abs(info[0]))
-
-            ax.set_title(f'|{keys[i]}| = {corr_coef}', size=15, pad=10)
-            ax.set_xlabel('model pred', size=15)
-            ax.set_ylabel('actual', size=15)
-            ax.text(-0.1, 1.1, string.ascii_uppercase[i], transform=ax.transAxes, size=20, weight='bold')
-            
-        except (KeyError, IndexError) as e:
-            fig.delaxes(ax)
-
-    plt.subplots_adjust(left=0.125, bottom=0.1, right=1.1,
-                        top=1.0, wspace=0.2, hspace=0.4)
-        
-    return
-
-def probe_heatmap(data):
-    '''
-    generates a heatmap using methylation p values
-
-        param data: data from which to generate heatmap, df
-
-        returns: none
-    '''
-
-    fig, axs = plt.subplots(figsize=(8,10))
-
-    sns.heatmap(data, norm=LogNorm(vmin = 0.001, vmax = 0.5), cmap='YlGnBu_r', cbar_kws={'extend': 'max'}, ax=axs)
-
-    axs.set_ylabel(f'{data.shape[0]} CpG sites (p value)', fontsize=20)
-    axs.set_xlabel('trait', fontsize=20)
-
-    axs.set_yticks([])
-    axs.tick_params('x', rotation=90, size=15)
-
-    plt.tight_layout()
-
-    return
-
-def trait_cluster(data, trait, n_probes):
-    '''
-    generates clustermap of p values
-
-        param data: p value data, m = probes, n = traits, df or dict
-        param trait: specific trait for which top inputs are selected, str
-        param n_probes: number of probes to be selected for a given trait, from lowest to highest pval, int
-
-        return: none
-    '''
-
-    # convert dict to df
-    if isinstance(data, dict): data = pd.DataFrame(data)
-
-    clustermap_df = data.sort_values(by=trait)
-    clustermap_df = clustermap_df.iloc[:n_probes]
-    clustermap_df = clustermap_df.fillna(1)
-
-    cluterm = sns.clustermap(clustermap_df, cmap='YlGnBu_r', vmin=0.0001, vmax=0.01, mask=(clustermap_df==1))
-    cluterm.ax_heatmap.set_title(f'top {n_probes} {trait}', fontsize=15)
-
-    cluterm.ax_heatmap.set_ylabel(f'{n_probes} CpG sites (p value)', fontsize=15)
-    cluterm.ax_heatmap.set_xlabel('trait', fontsize=15)
-    cluterm.ax_heatmap.tick_params(axis='x', labelsize=12, rotation=90)
-    
-    cluterm.ax_heatmap.set_facecolor('palegreen')
-
-    plt.tight_layout()
-    plt.show()
-
-    return
-
 def pinv_iteration(trait_data, meth_data, pred_trait=True):
     '''
     utilizes leave 1 out cross validation, gives accuracy of calculation via pseudoinversion by trait
@@ -183,33 +85,32 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
 
     '''
 
-    trait_vals = trait_data.values
-    meth_vals = meth_data.values
-
     # to match reference paper (https://github.com/giuliaprotti/Methylation_BuccalCells/tree/main)
-    trait_vals = trait_vals.T
-    meth_vals = meth_vals.T
+    trait_data_T = trait_data.T # animals x traits
+    meth_data_T = meth_data.T # animals x factors
+
+    # add a constant = 1 to the trait matrix
+    trait_data_T['bias_term'] = 1
+
+    # convert to numPy arrays
+    trait_vals = trait_data_T.values
+    meth_vals = meth_data_T.values
 
     if pred_trait: # if predicting trait
         X = meth_vals.copy() # the dataset used for making predictions (the independent variable)
         y = trait_vals.copy() # the dataset for which predictions are made (the dependent variable)
-        y_names = list(trait_data.index)
-
-        # add a constant term = 1 to the trait matrix
-        y = sm.add_constant(y, prepend=False)
+        y_names = list(trait_data.index) # not the transposed variant so we get the actual trait names
         
     else: # if predicting methylation
         X = trait_vals.copy()
         y = meth_vals.copy()
         y_names = list(meth_data.index)
 
-        # add a constant term = 1 to the trait matrix
-        X = sm.add_constant(X, prepend=False)
-
+    # dictionaries for the predictions
     all_pred = {var: [] for var in y_names}
     all_actual = {var: [] for var in y_names}
         
-    for i in range(len(y)): # so that the constant isn't reached
+    for i in range(y.shape[0]): # for every animal
 
         # define mask to distinguish train and test set
         mask = np.arange(len(y)) != i
@@ -225,18 +126,20 @@ def pinv_iteration(trait_data, meth_data, pred_trait=True):
             # this formula is only valid when there are less traits than observations for y_train
             site_coef = np.matmul(np.linalg.pinv(y_train), X_train) # Coefficient = Pinv(Trait_Train) * Meth_Train
             pred = np.matmul(X_test, np.linalg.pinv(site_coef)) # Trait_Pred = Meth_Test * Pinv(Site Coef)
+
         else:
             site_coef = np.matmul(np.linalg.pinv(X_train), y_train) # Coefficient = Pinv(Trait_Train) * Meth_Train
             pred = np.matmul(X_test, site_coef) # Meth_Pred = Trait_Test * Site Coef
 
-        # add values to the dictionary
+        # add values to their respective dictionaries
+        # note that the bias term is excluded
         m = 0
-        while m < len(y_names):
+        while m < len(y_names): # the first value of the predictions corresponds to the first site or trait, etc. (can be tested by keeping as dfs)
             all_pred[y_names[m]].append(pred[m])
             all_actual[y_names[m]].append(y_test[m])
             m+=1
 
-    return all_pred, all_actual, y_names
+    return all_pred, all_actual
 
 def pinv_dropmin(trait_data, meth_data, trait_thresh, 
                  probe_thresh=0, to_keep = ['Rank']):
@@ -262,7 +165,7 @@ def pinv_dropmin(trait_data, meth_data, trait_thresh,
     any_dropped = True # to initiate the loop
     while any_dropped:
 
-        pred, actual, _ = pinv_iteration(trait_data, meth_data)
+        pred, actual = pinv_iteration(trait_data, meth_data)
         any_dropped = False # none have been dropped yet
 
         to_remove = []
@@ -291,7 +194,7 @@ def filter_meth(trait_data, meth_data, thresh=0.5):
         return: filtered methylation data, df
     '''
 
-    pred, actual, _ = pinv_iteration(trait_data, meth_data, pred_trait=False)
+    pred, actual = pinv_iteration(trait_data, meth_data, pred_trait=False)
 
     to_remove = []
     for key in pred.keys():
@@ -329,9 +232,9 @@ def meth_calc(trait_data, meth_data):
     # add a constant term to trait_vals so that the model is fit through an origin of 1
     X = sm.add_constant(trait_vals, prepend=True) # adds to the first column
     
-    for i, probe in enumerate(meth_vals): # get p values for all probe-trait combinations (i.e. the "multiple" in mulitple multivariate regression)
-        model = sm.OLS(probe, X).fit() #  the "univariate" in univariate/linear multivariate regression
-        pvals[i] = model.pvalues[1:]
+    for i, probe in enumerate(meth_vals): # get p values for all probe-trait combinations (i.e. the "multiple" in multiple linear regression)
+        model = sm.OLS(probe, X).fit() #  the "linear" in multiple linear regression
+        pvals[i] = model.pvalues[1:] # get the p values from the OLS, excluding the intercept
         coef[i] =  model.params[1:]
 
     # so that we can iterate by trait
@@ -345,8 +248,8 @@ def meth_calc(trait_data, meth_data):
     # adjust the p values and add them + the coefficients to respective dictionary
     n = 0
     while n < len(trait_names):
-
-        adj_pvals = sms.multitest.fdrcorrection(pvals_by_trait[n], alpha=0.05) # adjust the pvals by trait
+        print(pvals_by_trait[n].shape)
+        adj_pvals = sms.multitest.fdrcorrection(pvals_by_trait[n], alpha=0.01) # adjust the pvals by trait
         trait_pvals[trait_names[n]] = adj_pvals[1] # adj_pvals gives multiple arrays, we want the actual values
         trait_coefs[trait_names[n]] = coef_by_trait[n]
 
