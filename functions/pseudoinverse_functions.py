@@ -248,7 +248,6 @@ def meth_calc(trait_data, meth_data):
     # adjust the p values and add them + the coefficients to respective dictionary
     n = 0
     while n < len(trait_names):
-        print(pvals_by_trait[n].shape)
         adj_pvals = sms.multitest.fdrcorrection(pvals_by_trait[n], alpha=0.01) # adjust the pvals by trait
         trait_pvals[trait_names[n]] = adj_pvals[1] # adj_pvals gives multiple arrays, we want the actual values
         trait_coefs[trait_names[n]] = coef_by_trait[n]
