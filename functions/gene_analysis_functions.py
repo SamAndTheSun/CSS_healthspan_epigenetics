@@ -87,7 +87,6 @@ def get_cistrome(probe_data, fig_w=2800, fig_h=3000,
             # put this into actual bed format
             bed_data['end_mm10'] = bed_data['pos_mm10']+2
             if check_coef: bed_data = bed_data.drop(columns=[column])
-
             if bed_data.empty:
                 print(f'No valid probes, skipping trait {column}')
                 continue
@@ -132,7 +131,11 @@ def get_cistrome(probe_data, fig_w=2800, fig_h=3000,
             i = 1
             while i < 10:
                 tables = soup.find_all('table', class_='table table-bordered table-hover') # main table
-                all_associations = tables[0].find_all('tr')[1:] # all associations on the first page, skipping the header
+                try:
+                    all_associations = tables[0].find_all('tr')[1:] # all associations on the first page, skipping the header
+                except IndexError:
+                    bio_factors['None'] = None
+                    break
                 for sample in all_associations: # for row in table
                     info = sample.select('td')
                     if info[5].get_text(strip=True) == 0: # if a GIGGLE score of 0
@@ -156,6 +159,7 @@ def get_cistrome(probe_data, fig_w=2800, fig_h=3000,
             driver.execute_script("window.scrollTo(0, 0);") # scroll to the top of the page
 
             # select figures
+            screenshot(driver)
             show_plot = driver.find_element(By.LINK_TEXT, 'Result in figure')
             show_plot.click()
 
