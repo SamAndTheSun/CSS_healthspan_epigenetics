@@ -275,7 +275,7 @@ def count_cumulative_probes(df, col1, col2):
 
     return: none
     '''
-    # Ensure the columns exist in the DataFrame
+    # ensure the columns exist in the DataFrame
     if col1 in df.columns and col2 in df.columns:
         non_nan_count = df[[col1, col2]].notna().any(axis=1).sum()
         print(f'{col1} and {col2}: {non_nan_count}')
