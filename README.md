@@ -2,7 +2,7 @@
 
 This repo is intended to track the ongoing development of the project. It is in-progress and is subject to change.
 
-Presently, the model works by utilizing 2 models which eventually intersect. The first combines a survival neural network (2 hidden layers w/ timepoint as a parameter) with elastic net regression, intended to mimic the construction of an epigenetic clock, and the second combines pseudoinversion with multiple multivariate regression. These processes are used, in conjunction with other filtering methods, to identify methylation probes and by extension genes significant in aging. These outputs are then overlapped, identifying a small set of highly significant probes.
+The analysis works by utilizing 2 models which eventually intersect. The first combines a survival neural network (2 layer MLP w/ timepoint as a parameter) with elastic net regression, intended to mimic the construction of an epigenetic clock. The second combines pseudoinversion with multiple linear regression, based on "The methylome of buccal epithelial cells is influenced by age, sex, and physiological properties". These processes are used, in conjunction with other filtering methods (standardization, normalization, and collinearity filtering based on Spearman correlation), to identify methylation probes, genes, and transcription factors which underlie aging in individuals exposed to chronic social stress. Each model has its own respective jupyter file, with "model intersection analysis" intersecting some of the results from the two analyses.
 
 ![](figures/data_analysis_overview.png)
 
