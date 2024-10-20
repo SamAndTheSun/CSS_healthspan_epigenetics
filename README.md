@@ -1,4 +1,4 @@
-# (title pending)
+# Intersecting Models Reveal Biomarkers Associated with Mortality Risk Under Chronic Social Stress
 
 This repo is intended to track the ongoing development of the project. It is in-progress and is subject to change.
 
