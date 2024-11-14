@@ -228,10 +228,11 @@ def cross_validation(X, y, batch_size, n_iterations, scramble_trait=False, remov
     progress_bar.value = n
 
   if (scramble_trait or remove_trait):
+    all_losses_dict = copy.deepcopy(trait_loss)
     # average by trait
     for key in trait_loss:
        trait_loss[key] = np.mean(trait_loss[key])
-    return trait_loss     
+    return trait_loss, all_losses_dict     
   
   else: # return calculated values
      return all_approx, all_actual, all_losses
