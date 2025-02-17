@@ -8,4 +8,4 @@ The raw data files that the analysis uses are not available here. The cohorts ut
 
 ![](figures/experimental_design.png) 
 
-All of the figures used in the manuscript are derived from the code and may be accessed there, with the exception of the formulas which were made in powerpoint
+All of the figures used in the manuscript are derived from the code and may be accessed there, with the exception of the formulas which were made in powerpoint.
