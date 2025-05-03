@@ -5,7 +5,7 @@ from scipy import stats
 import statsmodels.api as sm
 import statsmodels.stats as sms
 from sklearn.metrics import mean_absolute_error
-
+from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
 
@@ -72,6 +72,33 @@ def quality_filter(data, filter, keep_val=['Rank', 'CD1 or C57BL6J?', 'C57BL6J o
     data = data.loc[data.index.isin(dropped_corr.index)]
 
     return data, masked_corr
+
+def pca_filter(data, n_components=10):
+    '''
+    uses PCA loadings to select traits
+        param data: data to be assessed, by row, df
+        param filter: spearman coefficient threshhold, float
+        param keep_val: which traits to forcefully keep
+        return: filtered data, df
+    '''
+
+    data = data.T
+    pca = PCA(n_components=n_components)  # Or you could set n_components=None to keep all components that explain a large variance
+    _ = pca.fit_transform(data)  # Apply PCA to reduce dimensionality
+    loadings = pca.components_.T
+
+    average_contribution = np.abs(loadings).mean(axis=1)  # Calculate the average absolute contribution per feature
+
+    # Step 4: Create a DataFrame for better visualization with original feature names
+    contribution_df = pd.DataFrame(average_contribution, index=data.columns, columns=["Avg Abs Contribution"])
+    
+    # Step 5: Rank features by average absolute contribution
+    contribution_df["Rank"] = contribution_df["Avg Abs Contribution"].rank(ascending=False)
+    
+    # Step 6: Sort the features by their rank (highest contribution first)
+    contribution_df = contribution_df.sort_values(by="Avg Abs Contribution", ascending=False)
+    
+    return contribution_df
 
 def pinv_iteration(trait_data, meth_data, pred_trait=True):
     '''
